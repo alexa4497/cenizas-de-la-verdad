@@ -1,0 +1,115 @@
+#ifndef OBJETOSJUEGO_H
+#define OBJETOSJUEGO_H
+
+#include <QRect>
+#include <QPointF>
+#include <QVector>
+#include <cmath>
+
+// ----------------------------------------------------------------------
+// 1. CLASE BASE ABSTRACTA: ObjetoJuego
+// ----------------------------------------------------------------------
+
+class ObjetoJuego {
+public:
+    float pos_x;
+    float pos_y;
+    int ancho;
+    int alto;
+
+    virtual ~ObjetoJuego() {}
+
+    ObjetoJuego(float x, float y, int w, int h)
+        : pos_x(x), pos_y(y), ancho(w), alto(h) {}
+
+    // Método virtual puro.
+    virtual void dibujar() = 0;
+
+    // Método de utilidad para colisiones
+    QRect getRectanguloColision() const {
+        return QRect(static_cast<int>(pos_x), static_cast<int>(pos_y), ancho, alto);
+    }
+};
+
+// ----------------------------------------------------------------------
+// 2. CLASE BASE INTERMEDIA: Personaje
+// ----------------------------------------------------------------------
+
+class Personaje : public ObjetoJuego {
+public:
+    float velocidad;
+
+    Personaje(float x, float y, int w, int h, float v)
+        : ObjetoJuego(x, y, w, h), velocidad(v) {}
+
+    void mover(float dx, float dy) {
+        float magnitud = std::sqrt(dx * dx + dy * dy);
+        if (magnitud > 0) {
+            pos_x += (dx / magnitud) * velocidad;
+            pos_y += (dy / magnitud) * velocidad;
+        }
+    }
+    // NOTA: No necesita implementar dibujar, ya que las clases hijas lo harán.
+};
+
+// ----------------------------------------------------------------------
+// 3. CLASES CONCRETAS
+// ----------------------------------------------------------------------
+
+// CLASE FRAGMENTO
+class Fragmento : public ObjetoJuego {
+public:
+    bool estaSalvado;
+    bool estaQuemado;
+
+    Fragmento(float x, float y)
+        : ObjetoJuego(x, y, 20, 20), estaSalvado(false), estaQuemado(false) {}
+
+    void dibujar() override {} // Implementación requerida
+};
+
+
+// CLASE MURO
+class Muro : public ObjetoJuego {
+public:
+    Muro(float x, float y, int w, int h)
+        : ObjetoJuego(x, y, w, h) {}
+
+    void dibujar() override {} // Implementación requerida
+};
+
+
+// CLASE JUGADOR (Sabio Maya)
+class Jugador : public Personaje {
+public:
+    int fragmentosSalvados;
+    qint64 tiempoContactoFragMs;
+    bool estaIntentandoRetener;
+    Fragmento *fragmentoEnContactoActual; // Solo declarada
+
+    // CONSTRUCTOR MODIFICADO: Usa la lista de inicialización para todas las variables de estado.
+    Jugador(float x, float y)
+        : Personaje(x, y, 20, 20, 5.0f), // Llama al constructor base
+        fragmentosSalvados(0),         // Inicialización: 0
+        tiempoContactoFragMs(0),       // Inicialización: 0 (CRÍTICO para el timer)
+        estaIntentandoRetener(false),  // Inicialización: false (CRÍTICO para la tecla 'E')
+        fragmentoEnContactoActual(nullptr) // Inicialización: nullptr (CRÍTICO para el puntero fantasma)
+    {}
+
+    void dibujar() override {} // Implementación requerida
+};
+
+// CLASE AGENTE FUEGO
+class AgenteFuego : public Personaje {
+public:
+    AgenteFuego(float x, float y)
+        : Personaje(x, y, 60, 60, 1.5f) {}
+
+    void decidirPropagacion(QVector<Fragmento> &fragmentos) {
+        if (pos_x < 700) pos_x += velocidad;
+    }
+
+    void dibujar() override {} // Implementación requerida
+};
+
+#endif // OBJETOSJUEGO_H

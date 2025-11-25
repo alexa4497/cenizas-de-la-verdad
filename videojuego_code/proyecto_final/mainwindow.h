@@ -23,6 +23,7 @@ private slots: // <-- ¡Agrega esta sección si no existe!
     void abrirNivelDos();
     void abrirNivelTres();
 
+
 private:
     Ui::MainWindow *ui;
 };

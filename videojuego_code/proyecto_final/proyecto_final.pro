@@ -15,7 +15,8 @@ SOURCES += \
 
 HEADERS += \
     mainwindow.h \
-    niveluno.h
+    niveluno.h \
+    objetosjuego.h
 
 FORMS += \
     mainwindow.ui \

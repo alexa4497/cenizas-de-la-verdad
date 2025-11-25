@@ -39,13 +39,19 @@ MainWindow::~MainWindow()
 
 // 4. Implementación de Slots (Tus funciones)
 
-void MainWindow::abrirNivelUno()
-{
-    qDebug() << "--- Nivel 1 CONECTADO y Abriendo Niveluno ---";
-    // Usamos el nombre de tu clase: Niveluno
-    Niveluno *nivel_1 = new Niveluno(this);
-    nivel_1->show();
+void MainWindow::abrirNivelUno() {
+    // 1. Ocultar la ventana del menú principal
     this->hide();
+
+    // 2. Crear una nueva instancia del Nivel 1
+    // Es importante usar 'nullptr' para que la ventana del nivel sea independiente.
+    Niveluno *nivel = new Niveluno(nullptr);
+
+    // 3. Mostrar la ventana del Nivel 1
+    nivel->show();
+
+    // 4. Asegurar que el objeto Niveluno se destruya automáticamente cuando se cierre su ventana.
+    nivel->setAttribute(Qt::WA_DeleteOnClose);
 }
 
 void MainWindow::abrirNivelDos()
