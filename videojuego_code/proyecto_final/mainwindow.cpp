@@ -5,13 +5,19 @@
 #include "niveluno.h"
 
 
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
+    // Las constantes Niveluno son: 1250x650
+    const int NIVEL_WIDTH = 1250;
+    const int NIVEL_HEIGHT = 650;
+
     // 1. Inicialización y Diseño
     ui->setupUi(this);
-    this->resize(400, 300);
+    // 2. TAMAÑO CORREGIDO
+    this->resize(NIVEL_WIDTH, NIVEL_HEIGHT);
 
 
     QString imagePath = "C:/Users/alexa/Desktop/proyecto_final/videojuego_code/multimedia/imagenes/img_inicio.png";

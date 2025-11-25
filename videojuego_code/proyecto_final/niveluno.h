@@ -5,7 +5,7 @@
 #include <QTimer>
 #include <QElapsedTimer>
 #include <QVector>
-#include "objetosjuego.h"
+#include "objetosjuego.h" // Asumo que contiene Muro, Fragmento, SabioMaya, etc.
 
 namespace Ui {
 class Niveluno;
@@ -32,24 +32,35 @@ private:
 
     // Atributos de la Lógica del Juego
     QTimer *timerJuego;
-    QElapsedTimer timerElapsedJuego; // ¡RENOMBRADO! Usaremos este nombre en CPP
+    QElapsedTimer timerElapsedJuego;
+    QTimer *timerReinicio;
 
-    Jugador sabioMaya; // Ya no es abstracta
-    AgenteFuego agenteFuego; // Ya no es abstracta
+    // Clases de juego
+    Jugador sabioMaya;
+    AgenteFuego agenteFuego;
     QVector<Fragmento> fragmentos;
     QVector<Muro> muros;
+    int juegoEstado;
 
-    // Constantes
+
+    // Constantes y Zonas de Fuego
+    QList<Muro> zonasFuego; // OK: Declarada
     const int FRAGMENTOS_REQUERIDOS;
     const int TIEMPO_LIMITE_SEGUNDOS;
     const qint64 TIEMPO_RETENCION_MS;
 
-    // Métodos para la lógica del juego
+    // Métodos de lógica del juego
     void moverJugador(float dx, float dy);
-    void inicializarFragmentos();
-    void inicializarMuros();
     void verificarColisiones();
     void verificarEstadoJuego();
+
+    // Métodos de inicialización
+    void inicializarFragmentos();
+    void inicializarMuros();
+    void inicializarZonasFuego();
+    void reiniciarNivel();
+
+
 };
 
 #endif // NIVELUNO_H
