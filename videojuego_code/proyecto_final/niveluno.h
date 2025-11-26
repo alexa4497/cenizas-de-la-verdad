@@ -5,9 +5,9 @@
 #include <QTimer>
 #include <QElapsedTimer>
 #include <QVector>
-#include <QPixmap> // ¡IMPORTANTE! Necesario para QPixmap
-#include <QKeyEvent> // Necesario para keyPressEvent (aunque ya estaba en .cpp, mejor explicitarlo)
-#include "objetosjuego.h" // Contiene Jugador, Muro, Fragmento, AgenteFuego, etc.
+#include <QPixmap>
+#include <QKeyEvent>
+#include "objetosjuego.h"
 
 namespace Ui {
 class Niveluno;
@@ -25,8 +25,8 @@ private slots:
     void actualizarJuego();
     void reiniciarNivel();
     void actualizarAnimacionFuego();
-    void actualizarAnimacionMaya(); // <--- ¡NUEVO SLOT REQUERIDO!
-    // -------------------------------------------------------------
+    void actualizarAnimacionMaya();
+
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -64,23 +64,20 @@ private:
     QTimer *timerAnimacionFuego;
 
     // ------------------------------------------------------------------
-    // NUEVAS VARIABLES PARA LA ANIMACIÓN DEL SABIO MAYA (¡SOLUCIÓN DE ERRORES!)
+    //  VARIABLES PARA LA ANIMACIÓN DEL SABIO MAYA
     // ------------------------------------------------------------------
-    QPixmap fullSpriteSheetMaya;    // Hoja completa (240x240)
-    QVector<QPixmap> framesMaya;    // Frames individuales (60x60)
-    int currentFrameMayaIndex;      // Índice actual del frame (0-15)
+    QPixmap fullSpriteSheetMaya;
+    QVector<QPixmap> framesMaya;
+    int currentFrameMayaIndex;
 
-    QTimer *timerAnimacionMaya;     // Timer para controlar la velocidad de la caminata
-    int animRowOffset;              // Desplazamiento de fila (0, 4, 8, 12)
-    bool isMoving;                  // Estado de movimiento (para animar solo al caminar)
-    // ------------------------------------------------------------------
+    QTimer *timerAnimacionMaya;
+    int animRowOffset;
+    bool isMoving;
 
-    // Métodos de lógica del juego
     void moverJugador(float dx, float dy);
     void verificarColisiones();
     void verificarEstadoJuego();
 
-    // Métodos de inicialización
     void inicializarFragmentos();
     void inicializarMuros();
     void inicializarZonasFuego();

@@ -6,9 +6,8 @@
 #include <QVector>
 #include <cmath>
 
-// ----------------------------------------------------------------------
-// 1. CLASE BASE ABSTRACTA: ObjetoJuego
-// ----------------------------------------------------------------------
+
+// 1. CLASE BASE ObjetoJuego
 
 class ObjetoJuego {
 public:
@@ -22,7 +21,7 @@ public:
     ObjetoJuego(float x, float y, int w, int h)
         : pos_x(x), pos_y(y), ancho(w), alto(h) {}
 
-    // Método virtual puro.
+
     virtual void dibujar() = 0;
 
     // Método de utilidad para colisiones
@@ -31,9 +30,8 @@ public:
     }
 };
 
-// ----------------------------------------------------------------------
-// 2. CLASE BASE INTERMEDIA: Personaje
-// ----------------------------------------------------------------------
+
+// 2. CLASE  Personaje
 
 class Personaje : public ObjetoJuego {
 public:
@@ -49,12 +47,9 @@ public:
             pos_y += (dy / magnitud) * velocidad;
         }
     }
-    // NOTA: No necesita implementar dibujar, ya que las clases hijas lo harán.
+
 };
 
-// ----------------------------------------------------------------------
-// 3. CLASES CONCRETAS
-// ----------------------------------------------------------------------
 
 // CLASE FRAGMENTO
 class Fragmento : public ObjetoJuego {
@@ -80,7 +75,6 @@ public:
 
 
 // CLASE JUGADOR (Sabio Maya)
-// CLASE JUGADOR (Sabio Maya) - MODIFICADA
 class Jugador : public Personaje {
 public:
     int fragmentosSalvados;
@@ -88,7 +82,7 @@ public:
     bool estaIntentandoRetener;
     Fragmento *fragmentoEnContactoActual;
 
-    Jugador(float x, float y, float w, float h, float vel) // <-- Único constructor
+    Jugador(float x, float y, float w, float h, float vel)
         : Personaje(x, y, w, h, vel),
         fragmentosSalvados(0),
         tiempoContactoFragMs(0),
@@ -98,6 +92,9 @@ public:
 
     void dibujar() override {}
 };
+
+
+
 // CLASE AGENTE FUEGO
 class AgenteFuego : public Personaje {
 public:
@@ -108,7 +105,7 @@ public:
         if (pos_x < 700) pos_x += velocidad;
     }
 
-    void dibujar() override {} // Implementación requerida
+    void dibujar() override {}
 };
 
 #endif // OBJETOSJUEGO_H
