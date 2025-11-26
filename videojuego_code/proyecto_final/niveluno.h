@@ -5,7 +5,9 @@
 #include <QTimer>
 #include <QElapsedTimer>
 #include <QVector>
-#include "objetosjuego.h" // Asumo que contiene Muro, Fragmento, SabioMaya, etc.
+#include <QPixmap> // ¡IMPORTANTE! Necesario para QPixmap
+#include <QKeyEvent> // Necesario para keyPressEvent (aunque ya estaba en .cpp, mejor explicitarlo)
+#include "objetosjuego.h" // Contiene Jugador, Muro, Fragmento, AgenteFuego, etc.
 
 namespace Ui {
 class Niveluno;
@@ -21,6 +23,10 @@ public:
 
 private slots:
     void actualizarJuego();
+    void reiniciarNivel();
+    void actualizarAnimacionFuego();
+    void actualizarAnimacionMaya(); // <--- ¡NUEVO SLOT REQUERIDO!
+    // -------------------------------------------------------------
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -38,16 +44,36 @@ private:
     // Clases de juego
     Jugador sabioMaya;
     AgenteFuego agenteFuego;
+
     QVector<Fragmento> fragmentos;
     QVector<Muro> muros;
+    QVector<Muro> zonasFuego;
+
     int juegoEstado;
 
-
-    // Constantes y Zonas de Fuego
-    QList<Muro> zonasFuego; // OK: Declarada
+    // Constantes
     const int FRAGMENTOS_REQUERIDOS;
     const int TIEMPO_LIMITE_SEGUNDOS;
     const qint64 TIEMPO_RETENCION_MS;
+
+    // ------------------------------------------------------------------
+    // VARIABLES PARA LA ANIMACIÓN DEL FUEGO
+    // ------------------------------------------------------------------
+    QVector<QPixmap> framesFuego;
+    int currentFrameFuegoIndex;
+    QTimer *timerAnimacionFuego;
+
+    // ------------------------------------------------------------------
+    // NUEVAS VARIABLES PARA LA ANIMACIÓN DEL SABIO MAYA (¡SOLUCIÓN DE ERRORES!)
+    // ------------------------------------------------------------------
+    QPixmap fullSpriteSheetMaya;    // Hoja completa (240x240)
+    QVector<QPixmap> framesMaya;    // Frames individuales (60x60)
+    int currentFrameMayaIndex;      // Índice actual del frame (0-15)
+
+    QTimer *timerAnimacionMaya;     // Timer para controlar la velocidad de la caminata
+    int animRowOffset;              // Desplazamiento de fila (0, 4, 8, 12)
+    bool isMoving;                  // Estado de movimiento (para animar solo al caminar)
+    // ------------------------------------------------------------------
 
     // Métodos de lógica del juego
     void moverJugador(float dx, float dy);
@@ -58,9 +84,6 @@ private:
     void inicializarFragmentos();
     void inicializarMuros();
     void inicializarZonasFuego();
-    void reiniciarNivel();
-
-
 };
 
 #endif // NIVELUNO_H

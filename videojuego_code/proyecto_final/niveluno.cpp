@@ -5,52 +5,117 @@
 #include <QKeyEvent>
 #include <algorithm>
 #include <iostream>
-#include <cmath> // Necesario para std::min, std::max y sqrt
+#include <cmath>
+#include <QImage>   // Necesario para cargar imágenes con canal alfa
+#include <QPixmap>// Necesario para std::min, std::max y sqrt
+
+// niveluno.cpp (CONSTRUCTOR COMPLETO)
 
 // Definición de constantes de tamaño del nivel
 const int NIVEL_WIDTH = 1250;
 const int NIVEL_HEIGHT = 650;
 
-// ----------------------------------------------------
-// CONSTRUCTOR Y DESTRUCTOR
-// ----------------------------------------------------
-
-// NOTA: Asumiendo que QList<Muro> zonasFuego está declarado en niveluno.h
 Niveluno::Niveluno(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::Niveluno)
-    // 1. Posición del jugador: SIN CAMBIOS (600.0f, 100.0f)
-    , sabioMaya(600.0f, 100.0f)
-    // 2. Agente de Fuego: Fuera del mapa (pos 2000, 2000) ya que es estático.
+
+    , sabioMaya(600.0f, 80.0f, 60.0f, 60.0f,4.0f) // <--- Ajustado el tamaño del jugador a 60x60
     , agenteFuego(2000.0f, 2000.0f)
-    // Inicialización de Constantes
     , FRAGMENTOS_REQUERIDOS(8)
-    , TIEMPO_LIMITE_SEGUNDOS(80)
+    , TIEMPO_LIMITE_SEGUNDOS(100)
     , TIEMPO_RETENCION_MS(3000)
-    ,juegoEstado(0)
+    , juegoEstado(0)
 {
     ui->setupUi(this);
     this->setMinimumSize(NIVEL_WIDTH, NIVEL_HEIGHT);
     setFocusPolicy(Qt::StrongFocus);
 
+    // --- Timers Principales ---
     timerJuego = new QTimer(this);
     connect(timerJuego, &QTimer::timeout, this, &Niveluno::actualizarJuego);
 
-    // ** CORRECCIÓN: INICIALIZACIÓN Y CONEXIÓN DE timerReinicio **
     timerReinicio = new QTimer(this);
     connect(timerReinicio, &QTimer::timeout, this, &Niveluno::reiniciarNivel);
-    // -------------------------------------------------------------
 
+    // --- Inicialización de elementos ---
     inicializarFragmentos();
     inicializarMuros();
-    inicializarZonasFuego(); // ¡Añadido!
+    inicializarZonasFuego();
 
-    // Inicio del Juego
+    // ----------------------------------------------------------------------
+    // ** A. CARGA Y ANIMACIÓN DEL FUEGO (100x100 frames) **
+    // ----------------------------------------------------------------------
+
+    QString spriteSheetPath = "C:/Users/alexa/Desktop/proyecto_final/videojuego_code/multimedia/imagenes/sprites_fuego.png";
+    QPixmap fullSpriteSheet(spriteSheetPath);
+    framesFuego.clear();
+
+    if (!fullSpriteSheet.isNull()) {
+        int frameWidth = 100;
+        int frameHeight = 100;
+        framesFuego.append(fullSpriteSheet.copy(0 * frameWidth, 0, frameWidth, frameHeight));
+        framesFuego.append(fullSpriteSheet.copy(1 * frameWidth, 0, frameWidth, frameHeight));
+        framesFuego.append(fullSpriteSheet.copy(2 * frameWidth, 0, frameWidth, frameHeight));
+        framesFuego.append(fullSpriteSheet.copy(3 * frameWidth, 0, frameWidth, frameHeight));
+        qDebug() << "Sprite sheet de fuego cargado y dividido en" << framesFuego.size() << "frames.";
+    } else {
+        qDebug() << "ERROR CRÍTICO: No se pudo cargar el sprite sheet de fuego desde:" << spriteSheetPath;
+    }
+
+    currentFrameFuegoIndex = 0;
+    timerAnimacionFuego = new QTimer(this);
+    connect(timerAnimacionFuego, &QTimer::timeout, this, &Niveluno::actualizarAnimacionFuego);
+    if (!framesFuego.isEmpty()) {
+        timerAnimacionFuego->start(200);
+    } else {
+        qDebug() << "Animación de fuego deshabilitada por errores de carga.";
+    }
+
+    // ----------------------------------------------------------------------
+    // ** B. CARGA Y ANIMACIÓN DEL SABIO MAYA (60x60 frames - Sheet 240x240) **
+    // ----------------------------------------------------------------------
+
+    QString spriteSheetPathMaya = "C:/Users/alexa/Desktop/proyecto_final/videojuego_code/multimedia/imagenes/sprites_sabiomaya.png"; // <--- ¡AJUSTA ESTA RUTA!
+    fullSpriteSheetMaya.load(spriteSheetPathMaya);
+    framesMaya.clear();
+    currentFrameMayaIndex = 0;
+
+    if (!fullSpriteSheetMaya.isNull()) {
+        int frameWidth = 60;  // <--- Tamaño del frame individual (240 / 4)
+        int frameHeight = 60; // <--- Tamaño del frame individual
+
+        // Extraer los 16 frames (4 filas x 4 columnas)
+        for (int y = 0; y < 4; ++y) {
+            for (int x = 0; x < 4; ++x) {
+                framesMaya.append(fullSpriteSheetMaya.copy(x * frameWidth, y * frameHeight, frameWidth, frameHeight));
+            }
+        }
+        qDebug() << "Sprite sheet del Sabio Maya cargado y dividido en" << framesMaya.size() << "frames (60x60 cada uno).";
+    } else {
+        qDebug() << "ERROR CRÍTICO: No se pudo cargar el sprite sheet del Sabio Maya.";
+    }
+
+    // Inicializar variables de estado y animación
+    animRowOffset = 0;
+    isMoving = false;
+
+    // Timer para la animación de caminata (80ms)
+    timerAnimacionMaya = new QTimer(this);
+    connect(timerAnimacionMaya, &QTimer::timeout, this, &Niveluno::actualizarAnimacionMaya);
+    if (!framesMaya.isEmpty()) {
+        timerAnimacionMaya->start(95);
+    }
+
+    // ----------------------------------------------------------------------
+    // ** FIN DE CARGA DE SPRITES **
+    // ----------------------------------------------------------------------
+
+
+    // --- Inicio del Juego (Va al final de la inicialización) ---
     timerElapsedJuego.start();
     timerJuego->start(16); // ~60 FPS
     qDebug() << "Nivel 1 Iniciado. Tiempo límite:" << TIEMPO_LIMITE_SEGUNDOS << "segundos.";
 }
-
 
 Niveluno::~Niveluno()
 {
@@ -138,6 +203,31 @@ void Niveluno::inicializarMuros() {
 
     int x_derecho = (NIVEL_WIDTH * 3) / 4 - pilar_ancho / 2;
     muros.append(Muro(x_derecho, muro_grosor, pilar_ancho, pilar_altura_lateral));
+}
+
+// niveluno.cpp (IMPLEMENTACIÓN DEL NUEVO SLOT)
+
+// ------------------------------------------------------------------
+// LÓGICA DE ANIMACIÓN DEL SABIO MAYA
+// ------------------------------------------------------------------
+void Niveluno::actualizarAnimacionMaya() {
+    // Solo animamos si el jugador se está moviendo
+    if (isMoving) {
+        // La animación cíclica se hace dentro de los 4 frames de la fila actual.
+        // La fila (animRowOffset) se establece en keyPressEvent (0, 4, 8, o 12).
+
+        // 1. Obtener el índice de la columna actual dentro de la fila (0, 1, 2, 3)
+        int currentColumnIndex = currentFrameMayaIndex % 4;
+
+        // 2. Calcular el nuevo índice de columna (avanza al siguiente frame, y vuelve a 0 al llegar a 4)
+        currentColumnIndex = (currentColumnIndex + 1) % 4;
+
+        // 3. Establecer el índice global combinando columna + fila
+        currentFrameMayaIndex = currentColumnIndex + animRowOffset;
+
+        // 4. Forzar el repintado para mostrar el nuevo frame
+        update();
+    }
 }
 
 void Niveluno::inicializarZonasFuego() {
@@ -352,49 +442,76 @@ void Niveluno::verificarColisiones() {
     }
 }
 
+// niveluno.cpp (Implementación del nuevo slot)
 
+// niveluno.cpp (Implementación del slot actualizarAnimacionFuego)
+
+void Niveluno::actualizarAnimacionFuego() {
+    // Si la lista está vacía o solo tiene 1 frame, no animamos
+    if (framesFuego.size() < 2) {
+              return;
+        }
+               // ** CORRECCIÓN 2: Lógica de ciclo de animación **
+        // Fórmula: (Índice actual + 1) % Tamaño de la lista (automáticamente 4)
+        currentFrameFuegoIndex = (currentFrameFuegoIndex + 1) % framesFuego.size();
+
+        // Forzamos el repintado para que se muestre el nuevo frame
+          update();
+    }
 
 // ----------------------------------------------------
 // IMPLEMENTACIÓN DE EVENTOS (TECLADO Y PINTADO)
 // ----------------------------------------------------
-void Niveluno::keyPressEvent(QKeyEvent *event) {
-    if (juegoEstado != 0) return;
-    float dx = 0.0f;
-    float dy = 0.0f;
+    void Niveluno::keyPressEvent(QKeyEvent *event) {
+        if (juegoEstado != 0) return;
+        float dx = 0.0f;
+        float dy = 0.0f;
 
-    // 1. Manejo del intento de retención ('E')
-    if (event->key() == Qt::Key_E) {
-        if (event->isAutoRepeat()) return;
-        sabioMaya.estaIntentandoRetener = true;
-        // ***************************************************************
-        // AÑADIR: Imprimir la posición exacta en la consola al presionar 'E'
-        // ***************************************************************
-        int pos_x = static_cast<int>(sabioMaya.pos_x);
-        int pos_y = static_cast<int>(sabioMaya.pos_y);
-
-        qDebug() << "-----------------------------------------------";
-        qDebug() << "POSICIÓN FRAGMENTO:";
-        qDebug() << "X:" << pos_x << " | Y:" << pos_y;
-        qDebug() << "-----------------------------------------------";
-        // ***************************************************************
-    }
-
-    // 2. Manejo del movimiento
-    if (!sabioMaya.estaIntentandoRetener) {
-        if (event->key() == Qt::Key_W) dy = -1.0f;
-        if (event->key() == Qt::Key_S) dy = 1.0f;
-        if (event->key() == Qt::Key_A) dx = -1.0f;
-        if (event->key() == Qt::Key_D) dx = 1.0f;
-
-        if (dx != 0.0f || dy != 0.0f) {
-            moverJugador(dx, dy);
+        // 1. Manejo del intento de retención ('E')
+        if (event->key() == Qt::Key_E) {
+            if (event->isAutoRepeat()) return;
+            sabioMaya.estaIntentandoRetener = true;
+            // ... (código existente de impresión de posición) ...
         }
+
+        // 2. Manejo del movimiento y LÓGICA DE SPRITES
+        if (!sabioMaya.estaIntentandoRetener) {
+
+            // --- 2.1 Determinar dirección y movimiento ---
+            if (event->key() == Qt::Key_W) {
+                dy = -1.0f;
+                animRowOffset = 12; // Fila 3: Arriba
+            }
+            if (event->key() == Qt::Key_S) {
+                dy = 1.0f;
+                animRowOffset = 0;  // Fila 0: Abajo
+            }
+            if (event->key() == Qt::Key_A) {
+                dx = -1.0f;
+                animRowOffset = 4;  // Fila 1: Izquierda
+            }
+            if (event->key() == Qt::Key_D) {
+                dx = 1.0f;
+                animRowOffset = 8;  // Fila 2: Derecha
+            }
+
+            if (dx != 0.0f || dy != 0.0f) {
+                moverJugador(dx, dy);
+
+                // --- 2.2 Lógica de Animación (Solo si se está moviendo) ---
+                isMoving = true;
+
+                // Establecer el primer frame de la nueva dirección inmediatamente
+                currentFrameMayaIndex = animRowOffset;
+            } else {
+                // Si no se presionó W, A, S, o D, pero sí otra tecla (ej: Shift, Ctrl),
+                // Aseguramos que isMoving sea false (aunque keyReleaseEvent es quien lo maneja mejor).
+                isMoving = false;
+            }
+        }
+
+        update();
     }
-
-    update();
-}
-
-
 void Niveluno::verificarEstadoJuego() {
     int tiempoRestante = TIEMPO_LIMITE_SEGUNDOS - (timerElapsedJuego.elapsed() / 1000);
 
@@ -426,47 +543,80 @@ void Niveluno::verificarEstadoJuego() {
 }
 
 void Niveluno::keyReleaseEvent(QKeyEvent *event) {
+    if (juegoEstado != 0) return; // No procesar si el juego terminó
     if (event->isAutoRepeat()) return;
 
+    // 1. Lógica para soltar la tecla de Retención ('E')
     if (event->key() == Qt::Key_E) {
         sabioMaya.estaIntentandoRetener = false;
+
+        // Es CRÍTICO parar el tiempo de retención aquí o en actualizarJuego
+        sabioMaya.tiempoContactoFragMs = 0;
+
         qDebug() << "TECLA 'E' LIBERADA. Bandera de retención desactivada.";
     }
 
+    // 2. Lógica para soltar teclas de Movimiento (W, A, S, D)
+    // Esto desactiva la animación y detiene el movimiento.
+    if (event->key() == Qt::Key_W || event->key() == Qt::Key_S ||
+        event->key() == Qt::Key_A || event->key() == Qt::Key_D) {
+
+        // A. Lógica para la ANIMACIÓN (detener la caminata)
+        isMoving = false;
+
+        // Fija el sprite en la pose de "idle" (primer frame de la dirección actual)
+        // El valor de animRowOffset ya contiene la dirección correcta (0, 4, 8, o 12).
+        currentFrameMayaIndex = animRowOffset;
+
+        // B. Lógica para el MOVIMIENTO (detener la velocidad)
+        // Esto asume que tienes propiedades de velocidad en tu clase Jugador (sabioMaya).
+        // Si usas moverJugador() en keyPressEvent, debes manejar el estado aquí también.
+
+        // (Opcional, si tu clase Jugador maneja velocidad directa. Si usas moverJugador en keyPress,
+        // la velocidad se ajusta en moverJugador, pero es bueno resetear si el movimiento es continuo)
+        // sabioMaya.vel_x = 0;
+        // sabioMaya.vel_y = 0;
+
+        update(); // Forzar el repintado para mostrar la pose de reposo inmediatamente
+    }
+
+    // Llama a la implementación base para mantener el comportamiento estándar.
     QWidget::keyReleaseEvent(event);
 }
-
 // ----------------------------------------------------
 // IMPLEMENTACIÓN DE MÉTODOS DE REINICIO (Slot conectado a timerReinicio)
 // ----------------------------------------------------
 
+// niveluno.cpp (Fragmento de reiniciarNivel)
+
 void Niveluno::reiniciarNivel() {
+    // Detener el timer de reinicio
     timerReinicio->stop();
 
-    // 1. Reiniciar el estado del Jugador (sabioMaya)
-    // Se crea una nueva instancia de SabioMaya en la posición inicial (600.0f, 100.0f)
-    sabioMaya = Jugador(600.0f, 100.0f);
+    // ----------------------------------------------------
+    // ** CORRECCIÓN CRÍTICA: REINICIALIZAR JUGADOR A 60x60 **
+    // ----------------------------------------------------
+    // Usamos el constructor de 4 parámetros (x, y, ancho, alto)
+    sabioMaya = Jugador(600.0f, 80.0f, 60.0f, 60.0f,4.0f);
 
-    // 2. Resetear contadores y banderas del jugador
-    sabioMaya.fragmentosSalvados = 0;
-    sabioMaya.tiempoContactoFragMs = 0;
-    sabioMaya.estaIntentandoRetener = false;
+    // Reinicializar estados de juego y timers
+    juegoEstado = 0;
+    timerElapsedJuego.restart();
 
-    // 3. Reiniciar el estado del Nivel
-    juegoEstado = 0; // Vuelve a 0 (Jugando)
-    timerElapsedJuego.restart(); // Reiniciar el contador de tiempo de juego
+    // Reinicializar elementos del nivel (fragmentos, muros, etc.)
+    inicializarFragmentos();
+    // ... (otras inicializaciones que tengas)
 
-    // 4. Reiniciar los elementos dinámicos
-    inicializarFragmentos(); // Vuelve a colocar todos los fragmentos
-    // Los muros y el fuego no necesitan reiniciarse a menos que cambien.
+    // Reiniciar los estados de animación
+    animRowOffset = 0;
+    isMoving = false;
+    currentFrameMayaIndex = 0;
 
-    // 5. Reanudar el juego principal
-    timerJuego->start(16); // Inicia el ciclo de juego (~60 FPS)
-
-    // Forzar la actualización visual
-    update();
+    // Iniciar el timer principal del juego
+    timerJuego->start(16);
 
     qDebug() << "Juego Reiniciado y listo para jugar.";
+    update();
 }
 
 
@@ -484,135 +634,166 @@ void Niveluno::paintEvent(QPaintEvent *event) {
     // ----------------------------------------------------
 
     // Fondo
-    // --- MODIFICACIÓN PARA FONDO TIPO MOSAICO ---
-    // 1. Cargar la imagen: Asegúrate de que la ruta ':/recursos/fondo_mosaico.png'
-    //    es correcta y está en tu archivo de recursos (.qrc).
     QPixmap background_pixmap("C:/Users/alexa/Desktop/proyecto_final/videojuego_code/multimedia/imagenes/fondo_nivel1.jpg");
-
-    // 2. Crear un QBrush con la imagen y establecer el patrón de textura (mosaico)
     QBrush background_brush(background_pixmap);
-    background_brush.setStyle(Qt::TexturePattern); // Esto hace el efecto mosaico
-
-    // 3. Dibujar el fondo usando el QBrush (cubre todo el nivel)
+    background_brush.setStyle(Qt::TexturePattern);
     painter.fillRect(0, 0, NIVEL_WIDTH, NIVEL_HEIGHT, background_brush);
 
-    // 1. **CORRECCIÓN CRÍTICA DE RUTA:** // Usa la ruta del sistema de archivos *si es absolutamente necesario* (no recomendado),
-    // o la ruta de recursos si la imagen está en el archivo .qrc (RECOMENDADO).
-    // Intenta la ruta de recursos (asumiendo que corregiste el .qrc y es .jpg)
-    QPixmap muro_pixmap("C:/Users/alexa/Desktop/proyecto_final/videojuego_code/multimedia/imagenes/paredes_nivel1.jpg"); // <--- UTILIZA ESTA RUTA SI EL ARCHIVO ESTÁ EN EL .QRC
-
-    // 2. Configuración del pincel y Fallback de color
+    // Muros
+    QPixmap muro_pixmap("C:/Users/alexa/Desktop/proyecto_final/videojuego_code/multimedia/imagenes/paredes_nivel1.jpg");
     QBrush muro_brush;
 
     if (!muro_pixmap.isNull()) {
-        // Si la carga fue exitosa, usa la textura
         muro_brush = QBrush(muro_pixmap);
         muro_brush.setStyle(Qt::TexturePattern);
     } else {
-        // Si la carga falló, usa un color gris sólido y avisa
         qDebug() << "ADVERTENCIA CRÍTICA: ¡No se pudo cargar la imagen del muro! Usando gris sólido.";
         muro_brush = QBrush(QColor(80, 80, 80));
     }
 
-    // 3. Aplicar el pincel y quitar el borde
     painter.setBrush(muro_brush);
     painter.setPen(Qt::NoPen);
 
     for (const Muro &m : muros) {
         QRect rect = m.getRectanguloColision();
-
-        // Rellena el muro. Si la imagen falló, el muro será GRIS SÓLIDO.
-        // Si la imagen cargó, el muro será la TEXTURA.
         painter.drawRect(rect);
     }
 
-    // Dibujado de Zonas de Fuego Fijas
-    painter.setBrush(Qt::red); // ¡Rojo para el peligro!
-    painter.setPen(Qt::NoPen);
-    for (const Muro &fuego : zonasFuego) {
-        painter.drawRect(fuego.getRectanguloColision());
-    }
+    // Dibujado de Zonas de Fuego Fijas (Animación)
+    if (!framesFuego.isEmpty() && currentFrameFuegoIndex < framesFuego.size()) {
 
-    // Dibujado de Fragmentos
-    for (const Fragmento &f : fragmentos) {
-        if (!f.estaSalvado && !f.estaQuemado) {
-            painter.setBrush(Qt::yellow);
-            painter.setPen(Qt::NoPen);
-            painter.drawRect(f.getRectanguloColision());
+        QPixmap currentFrame = framesFuego.at(currentFrameFuegoIndex);
+        painter.setPen(Qt::NoPen);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceOver); // Transparencia
+
+        for (const Muro &fuego : zonasFuego) {
+            painter.drawPixmap(fuego.getRectanguloColision(), currentFrame);
+        }
+    } else {
+        // Fallback de fuego
+        painter.setBrush(Qt::red);
+        painter.setPen(Qt::NoPen);
+        for (const Muro &fuego : zonasFuego) {
+            painter.drawRect(fuego.getRectanguloColision());
         }
     }
 
+    // --- DIBUJADO DE FRAGMENTOS (CÍRCULOS AMARILLOS CON BORDE NEGRO) ---
+    for (const Fragmento &f : fragmentos) {
+        if (f.estaSalvado) {
+            continue;
+        }
+
+        // 1. Configuración del Borde (Negro)
+        QPen borderPen(Qt::black);
+        borderPen.setWidth(2);
+        painter.setPen(borderPen);
+
+        // 2. Determinar el color de relleno
+        if (f.estaQuemado) {
+            painter.setBrush(Qt::darkGray);
+        } else {
+            painter.setBrush(Qt::yellow);
+        }
+
+        // 3. Dibujar la elipse/círculo
+        painter.drawEllipse(f.getRectanguloColision());
+    }
+
     // Dibujado del Jugador (Sabio Maya)
-    painter.setBrush(Qt::darkGreen);
+    // ------------------------------------------------------------------
+    if (!framesMaya.isEmpty() && currentFrameMayaIndex < framesMaya.size()) {
+        QPixmap playerFrame = framesMaya.at(currentFrameMayaIndex);
+
+        painter.setCompositionMode(QPainter::CompositionMode_SourceOver); // Para usar la transparencia
+        // Dibuja el frame actual (60x60) en el rectángulo de colisión del jugador.
+        painter.drawPixmap(sabioMaya.getRectanguloColision(), playerFrame);
+    } else {
+        // Fallback: Si los sprites fallan, mantiene el círculo verde
+        painter.setBrush(Qt::darkGreen);
+        painter.setPen(Qt::white);
+        painter.drawEllipse(sabioMaya.getRectanguloColision());
+    }
+
+    // ----------------------------------------------------
+    // 3. DIBUJADO DE LA INTERFAZ DE USUARIO (HUD) - MODIFICADO
+    // ----------------------------------------------------
+
+    // --- Configuración Global de Fuente y Fondo ---
+    QFont hudFont("Times New Roman", 16, QFont::Bold);
+    QColor backgroundColor(50, 50, 50, 150); // Fondo gris semi-transparente
+    int hudWidth = 250;
+    int hudHeight = 50;
+
+    // Dibujar el rectángulo de fondo gris para el HUD superior
+    painter.setBrush(backgroundColor);
+    painter.setPen(Qt::NoPen);
+    painter.drawRect(10, 10, hudWidth, hudHeight);
+
+    // Restaurar el color del texto y aplicar la fuente
     painter.setPen(Qt::white);
-    painter.drawEllipse(sabioMaya.getRectanguloColision());
+    painter.setFont(hudFont);
 
-    // ----------------------------------------------------
-    // 3. DIBUJADO DE LA INTERFAZ DE USUARIO (HUD)
-    // ----------------------------------------------------
-
-    // Dibujado del Agente de Fuego (invisible, fuera de pantalla)
-    // El Agente de Fuego ya no es relevante, pero se mantiene su dibujado si insiste.
-    painter.setBrush(Qt::red);
-    painter.drawRect(agenteFuego.getRectanguloColision());
 
     // Texto de Fragmentos
-    painter.setPen(Qt::white);
-    painter.setFont(QFont("Arial", 10));
-    painter.drawText(20, 20, QString("Fragmentos: %1 / %2").arg(sabioMaya.fragmentosSalvados).arg(FRAGMENTOS_REQUERIDOS));
+    painter.drawText(20, 30, QString("Fragmentos: %1 / %2").arg(sabioMaya.fragmentosSalvados).arg(FRAGMENTOS_REQUERIDOS));
 
     // Texto de Tiempo Restante
     int tiempoRestante = TIEMPO_LIMITE_SEGUNDOS - (timerElapsedJuego.elapsed() / 1000);
-    painter.drawText(20, 40, QString("Tiempo: %1 s").arg(tiempoRestante));
+    painter.drawText(20, 50, QString("Tiempo: %1 s").arg(tiempoRestante));
 
-    // Mensaje "RESCATANDO..." (Barra de Progreso)
+
+    // --- MENSAJE "RESCATANDO..." (Barra de Progreso) - MODIFICADO ---
     if (sabioMaya.tiempoContactoFragMs > 0) {
         qreal progreso = (timerElapsedJuego.elapsed() - sabioMaya.tiempoContactoFragMs) / (qreal)TIEMPO_RETENCION_MS;
         if (progreso > 1.0) progreso = 1.0;
 
-        painter.setPen(Qt::green);
-        painter.setFont(QFont("Arial", 12, QFont::Bold));
+        // Texto Azul Claro (Cian)
+        painter.setPen(Qt::cyan);
+        painter.setFont(QFont("Times New Roman", 18, QFont::Bold));
 
         painter.drawText(NIVEL_WIDTH / 2 - 100, NIVEL_HEIGHT - 50,
                          QString("RESCATANDO... %1%").arg(static_cast<int>(progreso * 100)));
 
-        // Barra de progreso visual
+        // Barra de progreso visual (Relleno Azul Cian)
+        painter.setPen(Qt::NoPen);
         painter.setBrush(QColor(30, 30, 30));
         painter.drawRect(NIVEL_WIDTH / 2 - 100, NIVEL_HEIGHT - 40, 200, 10);
-        painter.setBrush(Qt::green);
+
+        painter.setBrush(Qt::cyan);
         painter.drawRect(NIVEL_WIDTH / 2 - 100, NIVEL_HEIGHT - 40, 200 * progreso, 10);
     }
 
+    // --- MENSAJES FINALES (VICTORIA / DERROTA) - CORREGIDOS ---
     if (juegoEstado != 0) {
         QString mensaje = "";
         QColor colorFondo;
 
         if (juegoEstado == 1) { // VICTORIA
             mensaje = "🏆 ¡VICTORIA! Nivel Completado 🏆";
-            colorFondo = QColor(50, 200, 50, 180); // Verde semi-transparente
+            colorFondo = QColor(50, 200, 50, 180);
         } else if (juegoEstado == 2) { // DERROTA
-            mensaje = "☠️ DERROTA - JUEGO TERMINADO ☠️";
-            colorFondo = QColor(200, 50, 50, 180); // Rojo semi-transparente
+            mensaje = "DERROTA - JUEGO TERMINADO ️";
+            colorFondo = QColor(200, 50, 50, 180);
         }
 
-        // Fondo semi-transparente (cubre toda la pantalla)
+        // Fondo semi-transparente
         painter.setBrush(colorFondo);
         painter.setPen(Qt::NoPen);
         painter.drawRect(0, 0, NIVEL_WIDTH, NIVEL_HEIGHT);
 
-        // Mensaje Principal
+        // Mensaje Principal (Fuente y Posición Corregida)
         painter.setPen(Qt::white);
-        painter.setFont(QFont("Arial", 40, QFont::Bold));
+        painter.setFont(QFont("Times New Roman", 36, QFont::Bold)); // Tamaño ajustado a 36
 
-        // Cálculo del centro de la pantalla
         int centerX = NIVEL_WIDTH / 2;
         int centerY = NIVEL_HEIGHT / 2;
 
-        // Dibuja el mensaje (posición aproximada para centrar)
-        painter.drawText(centerX - 250, centerY - 20, mensaje);
+        // Posición X ajustada a -200 para centrado y evitar cortes
+        painter.drawText(centerX - 200, centerY - 20, mensaje);
 
         // Mensaje de reinicio
-        painter.setFont(QFont("Arial", 18));
-        painter.drawText(centerX - 200, centerY + 40, "Reiniciando en 4 segundos...");
+        painter.setFont(QFont("Times New Roman", 18));
+        painter.drawText(centerX - 180, centerY + 40, "Reiniciando en 4 segundos...");
     }
 }

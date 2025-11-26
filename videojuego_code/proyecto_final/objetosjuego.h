@@ -80,25 +80,24 @@ public:
 
 
 // CLASE JUGADOR (Sabio Maya)
+// CLASE JUGADOR (Sabio Maya) - MODIFICADA
 class Jugador : public Personaje {
 public:
     int fragmentosSalvados;
     qint64 tiempoContactoFragMs;
     bool estaIntentandoRetener;
-    Fragmento *fragmentoEnContactoActual; // Solo declarada
+    Fragmento *fragmentoEnContactoActual;
 
-    // CONSTRUCTOR MODIFICADO: Usa la lista de inicialización para todas las variables de estado.
-    Jugador(float x, float y)
-        : Personaje(x, y, 20, 20, 5.0f), // Llama al constructor base
-        fragmentosSalvados(0),         // Inicialización: 0
-        tiempoContactoFragMs(0),       // Inicialización: 0 (CRÍTICO para el timer)
-        estaIntentandoRetener(false),  // Inicialización: false (CRÍTICO para la tecla 'E')
-        fragmentoEnContactoActual(nullptr) // Inicialización: nullptr (CRÍTICO para el puntero fantasma)
+    Jugador(float x, float y, float w, float h, float vel) // <-- Único constructor
+        : Personaje(x, y, w, h, vel),
+        fragmentosSalvados(0),
+        tiempoContactoFragMs(0),
+        estaIntentandoRetener(false),
+        fragmentoEnContactoActual(nullptr)
     {}
 
-    void dibujar() override {} // Implementación requerida
+    void dibujar() override {}
 };
-
 // CLASE AGENTE FUEGO
 class AgenteFuego : public Personaje {
 public:
