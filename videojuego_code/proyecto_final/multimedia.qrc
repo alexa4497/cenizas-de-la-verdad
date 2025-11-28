@@ -1,0 +1,14 @@
+<RCC>
+    <qresource prefix="/imagenes">
+        <file>multimedia/imagenes/fondo_nivel1.jpg</file>
+        <file>multimedia/imagenes/img_inicio.png</file>
+        <file>multimedia/imagenes/paredes_nivel1.jpg</file>
+        <file>multimedia/imagenes/sprites_fuego.png</file>
+        <file>multimedia/imagenes/sprites_sabiomaya.png</file>
+        <file>multimedia/imagenes/titulo.jpg</file>
+        <file>multimedia/imagenes/fragmento.png</file>
+    </qresource>
+    <qresource prefix="/sonido">
+        <file>multimedia/audio/audio_nivel1.ogg</file>
+    </qresource>
+</RCC>

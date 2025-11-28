@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include "niveluno.h"
+#include "ob.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -17,14 +18,14 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+    Ui::MainWindow *ui;
 
-private slots: // <-- ¡Agrega esta sección si no existe!
-    void abrirNivelUno();   // <--- ¡Tu nombre deseado!
+private slots:
+    void abrirNivelUno();
     void abrirNivelDos();
     void abrirNivelTres();
 
 
-private:
-    Ui::MainWindow *ui;
+
 };
 #endif // MAINWINDOW_H

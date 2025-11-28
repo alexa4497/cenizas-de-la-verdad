@@ -8,6 +8,8 @@
 #include <cmath>
 #include <QImage>
 #include <QPixmap>
+#include "personajes.h"
+#include "objetosjuego.h"
 
 
 const int NIVEL_WIDTH = 1250;
@@ -35,16 +37,13 @@ Niveluno::Niveluno(QWidget *parent)
     timerReinicio = new QTimer(this);
     connect(timerReinicio, &QTimer::timeout, this, &Niveluno::reiniciarNivel);
 
-    // --- Inicialización de elementos ---
     inicializarFragmentos();
     inicializarMuros();
     inicializarZonasFuego();
 
-    // ----------------------------------------------------------------------
     // CARGA Y ANIMACIÓN DEL FUEGO
-    // ----------------------------------------------------------------------
 
-    QString spriteSheetPath = "C:/Users/alexa/Desktop/proyecto_final/videojuego_code/multimedia/imagenes/sprites_fuego.png";
+    QString spriteSheetPath = ":/imagenes/multimedia/imagenes/sprites_fuego.png";
     QPixmap fullSpriteSheet(spriteSheetPath);
     framesFuego.clear();
 
@@ -55,9 +54,7 @@ Niveluno::Niveluno(QWidget *parent)
         framesFuego.append(fullSpriteSheet.copy(1 * frameWidth, 0, frameWidth, frameHeight));
         framesFuego.append(fullSpriteSheet.copy(2 * frameWidth, 0, frameWidth, frameHeight));
         framesFuego.append(fullSpriteSheet.copy(3 * frameWidth, 0, frameWidth, frameHeight));
-        qDebug() << "Sprite sheet de fuego cargado y dividido en" << framesFuego.size() << "frames.";
-    } else {
-        qDebug() << "ERROR CRÍTICO: No se pudo cargar el sprite sheet de fuego desde:" << spriteSheetPath;
+
     }
 
     currentFrameFuegoIndex = 0;
@@ -65,24 +62,19 @@ Niveluno::Niveluno(QWidget *parent)
     connect(timerAnimacionFuego, &QTimer::timeout, this, &Niveluno::actualizarAnimacionFuego);
     if (!framesFuego.isEmpty()) {
         timerAnimacionFuego->start(200);
-    } else {
-        qDebug() << "Animación de fuego deshabilitada por errores de carga.";
     }
 
-    // ----------------------------------------------------------------------
     // ** B. CARGA Y ANIMACIÓN DEL SABIO MAYA
-    // ----------------------------------------------------------------------
 
-    QString spriteSheetPathMaya = "C:/Users/alexa/Desktop/proyecto_final/videojuego_code/multimedia/imagenes/sprites_sabiomaya.png"; // <--- ¡AJUSTA ESTA RUTA!
+    QString spriteSheetPathMaya = ":/imagenes/multimedia/imagenes/sprites_sabiomaya.png";
     fullSpriteSheetMaya.load(spriteSheetPathMaya);
     framesMaya.clear();
     currentFrameMayaIndex = 0;
 
     if (!fullSpriteSheetMaya.isNull()) {
         int frameWidth = 60;
-        int frameHeight = 60; // <--- Tamaño del frame individual
+        int frameHeight = 60;
 
-        // Extraer los 16 frames (4 filas x 4 columnas)
         for (int y = 0; y < 4; ++y) {
             for (int x = 0; x < 4; ++x) {
                 framesMaya.append(fullSpriteSheetMaya.copy(x * frameWidth, y * frameHeight, frameWidth, frameHeight));
@@ -104,24 +96,47 @@ Niveluno::Niveluno(QWidget *parent)
         timerAnimacionMaya->start(95);
     }
 
-    // ----------------------------------------------------------------------
-    // ** FIN DE CARGA DE SPRITES **
-    // ----------------------------------------------------------------------
+    // ----------------------------------------------------
+    // INICIALIZACIÓN DE MÚSICA DE FONDO (CONTINUA)
+    // ----------------------------------------------------
+    audioOutput = new QAudioOutput(this);
+    audioOutput->setVolume(0.5); // Volumen al 50% (0.0 a 1.0)
 
+    musicaFondo = new QMediaPlayer(this);
+    musicaFondo->setAudioOutput(audioOutput);
 
-    // --- Inicio del Juego (Va al final de la inicialización) ---
+    // ¡IMPORTANTE! Reemplaza ':/sonidos/musica_nivel_1.mp3' con la RUTA CORRECTA de tu archivo .qrc
+    musicaFondo->setSource(QUrl("qrc:/sonido/multimedia/audio/audio_nivel1.ogg"));
+
+    connect(musicaFondo, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus status) {
+        // Cuando la música termina (EndOfMedia), la volvemos a poner a sonar.
+        if (status == QMediaPlayer::EndOfMedia) {
+            musicaFondo->play();
+        }
+    });
+
+    // Iniciar la reproducción inmediatamente
+    musicaFondo->play();
+
+    // --- Inicio del Juego
     timerElapsedJuego.start();
     timerJuego->start(16);
 }
 
+
+
 Niveluno::~Niveluno()
 {
+
+    if (musicaFondo) {
+        musicaFondo->stop();
+    }
+
     delete ui;
 }
 
-// ----------------------------------------------------
+
 // IMPLEMENTACIÓN DE MÉTODOS DE INICIALIZACIÓN
-// ----------------------------------------------------
 
 void Niveluno::inicializarFragmentos() {
     fragmentos.clear();
@@ -134,7 +149,6 @@ void Niveluno::inicializarFragmentos() {
     fragmentos.append(Fragmento(150, 220));
     fragmentos.append(Fragmento(300, 555));
 
-
 }
 
 
@@ -144,23 +158,16 @@ void Niveluno::inicializarMuros() {
     const int muro_grosor = 40;
     const int pilar_ancho = 60;
 
-    // ----------------------------------------------------
-    // 1. Muros del Borde Exterior (Perímetro 100%)
-    // ----------------------------------------------------
+    // 1. Muros del Borde Exterior
     muros.append(Muro(0, 0, NIVEL_WIDTH, muro_grosor));
     muros.append(Muro(0, NIVEL_HEIGHT - muro_grosor, NIVEL_WIDTH, muro_grosor));
     muros.append(Muro(0, muro_grosor, muro_grosor, NIVEL_HEIGHT - 2 * muro_grosor));
     muros.append(Muro(NIVEL_WIDTH - muro_grosor, muro_grosor, muro_grosor, NIVEL_HEIGHT - 2 * muro_grosor));
 
+    // 2. Muros Interiores
 
-    // ----------------------------------------------------
-    // 2. Muros Interiores (Estructura de Tres Pilares y T central)
-    // ----------------------------------------------------
-
-    // Alturas de los pilares
     const int pilar_altura_lateral = NIVEL_HEIGHT - 2 * muro_grosor - 100;
     const int pilar_altura_central = NIVEL_HEIGHT - 2 * muro_grosor - 200;
-
 
     int x_central = NIVEL_WIDTH / 2 - pilar_ancho / 2;
     int y_central_pegado = NIVEL_HEIGHT - muro_grosor - pilar_altura_central;
@@ -180,9 +187,8 @@ void Niveluno::inicializarMuros() {
 
 
 
-// ------------------------------------------------------------------
 //ANIMACIÓN DEL SABIO MAYA
-// ------------------------------------------------------------------
+
 void Niveluno::actualizarAnimacionMaya() {
     if (isMoving) {
 
@@ -220,50 +226,30 @@ void Niveluno::inicializarZonasFuego() {
     const int ALTO_TOTAL_FUEGO = GROSOR_MURO + 2 * fuego_grosor_borde_ajustado; // 120
 
 
-    // --------------------------------------------------------------------------
-    // 1. ZONA INFERIOR La "U"
-    // --------------------------------------------------------------------------
+    // 1. ZONA INFERIOR
     zonasFuego.append(Muro(0, y_inferior, x_central, fuego_inferior_grosor));
     zonasFuego.append(Muro(x_central + pilar_ancho, y_inferior, NIVEL_WIDTH - (x_central + pilar_ancho), fuego_inferior_grosor));
 
-
-    // --------------------------------------------------------------------------
     // 2. FUEGO QUE RODEA LA BARRA HORIZONTAL
-    // --------------------------------------------------------------------------
-
 
     zonasFuego.append(Muro(X_FUEGO_IZQ, Y_FUEGO_SUPERIOR, ANCHO_TOTAL_FUEGO, fuego_grosor_borde_ajustado));
-
     zonasFuego.append(Muro(X_FUEGO_IZQ, Y_FUEGO_INFERIOR_INICIO, ANCHO_TOTAL_FUEGO, fuego_grosor_borde_ajustado));
-
     zonasFuego.append(Muro(X_FUEGO_IZQ, Y_FUEGO_SUPERIOR, fuego_grosor_borde_ajustado, ALTO_TOTAL_FUEGO));
-
     zonasFuego.append(Muro(X_FUEGO_DER, Y_FUEGO_SUPERIOR, fuego_grosor_borde_ajustado, ALTO_TOTAL_FUEGO));
 
-
-    // --------------------------------------------------------------------------
     // 3. FUEGO QUE RODEA EL PILAR VERTICAL
-    // --------------------------------------------------------------------------
-
 
     const int Y_INICIO_FUEGO_PILAR = Y_FUEGO_INFERIOR_INICIO + fuego_grosor_borde_ajustado; // 225 + 35 = 260
     const int Y_FINAL_FUEGO_PILAR = y_inferior; // 580
-
     const int altura_fuego_pilar = Y_FINAL_FUEGO_PILAR - Y_INICIO_FUEGO_PILAR; // 580 - 260 = 320
-
-
     const int X_BORDE_IZQ_PILAR = x_central - fuego_grosor_borde_ajustado; // 595 - 35 = 560
     const int X_BORDE_DER_PILAR = x_central + pilar_ancho; // 595 + 60 = 655
 
 
     zonasFuego.append(Muro(X_BORDE_IZQ_PILAR, Y_INICIO_FUEGO_PILAR, fuego_grosor_borde_ajustado, altura_fuego_pilar));
-
     zonasFuego.append(Muro(X_BORDE_DER_PILAR, Y_INICIO_FUEGO_PILAR, fuego_grosor_borde_ajustado, altura_fuego_pilar));
 
-
-    // --------------------------------------------------------------------------
     // 4. ZONAS CUADRADAS SUPERIORES
-    // --------------------------------------------------------------------------
     zonasFuego.append(Muro(120, 100, 100, 100));
     zonasFuego.append(Muro(1050, 100, 100, 100));
 }
@@ -311,11 +297,8 @@ void Niveluno::verificarColisiones() {
         }
     }
 
-    // --------------------------------------------------------------------------
     // LÓGICA DE RESETEO CRÍTICO Y TIEMPO DE RETENCIÓN
-    // --------------------------------------------------------------------------
 
-    // Si la tecla 'E' está presionada pero NO hay fragmento en contacto.
     if (sabioMaya.estaIntentandoRetener && sabioMaya.fragmentoEnContactoActual == nullptr) {
         if (sabioMaya.tiempoContactoFragMs != 0) {
             sabioMaya.tiempoContactoFragMs = 0;
@@ -340,7 +323,6 @@ void Niveluno::verificarColisiones() {
             tiempoTranscurrido = tiempoActual - sabioMaya.tiempoContactoFragMs;
         }
 
-        // 3. VERIFICACIÓN DE ÉXITO
         if (tiempoTranscurrido >= TIEMPO_RETENCION_MS) {
 
             if (sabioMaya.fragmentoEnContactoActual != nullptr) {
@@ -400,18 +382,17 @@ void Niveluno::verificarColisiones() {
 }
 
 
-
 // Implementación del slot actualizarAnimacionFuego
 
 void Niveluno::actualizarAnimacionFuego() {
 
     if (framesFuego.size() < 2) {
-              return;
-        }
-        currentFrameFuegoIndex = (currentFrameFuegoIndex + 1) % framesFuego.size();
-
-          update();
+        return;
     }
+    currentFrameFuegoIndex = (currentFrameFuegoIndex + 1) % framesFuego.size();
+
+    update();
+}
 
 // ----------------------------------------------------
 // IMPLEMENTACIÓN DE EVENTOS TECLADO
@@ -510,12 +491,9 @@ void Niveluno::keyReleaseEvent(QKeyEvent *event) {
 
     }
 
-    // 2. Lógica para soltar teclas de Movimiento (W, A, S, D)
-
     if (event->key() == Qt::Key_W || event->key() == Qt::Key_S ||
         event->key() == Qt::Key_A || event->key() == Qt::Key_D) {
 
-        // A. Lógica para la ANIMACIÓN (detener la caminata)
         isMoving = false;
 
         currentFrameMayaIndex = animRowOffset;
@@ -533,27 +511,21 @@ void Niveluno::keyReleaseEvent(QKeyEvent *event) {
 // ----------------------------------------------------
 
 
-
 void Niveluno::reiniciarNivel() {
 
     timerReinicio->stop();
 
     sabioMaya = Jugador(600.0f, 80.0f, 60.0f, 60.0f,4.0f);
 
-    // Reinicializar estados de juego y timers
     juegoEstado = 0;
     timerElapsedJuego.restart();
 
-
     inicializarFragmentos();
 
-
-    // Reiniciar los estados de animación
     animRowOffset = 0;
     isMoving = false;
     currentFrameMayaIndex = 0;
 
-    // Iniciar el timer principal del juego
     timerJuego->start(16);
 
     qDebug() << "Juego Reiniciado y listo para jugar.";
@@ -571,21 +543,20 @@ void Niveluno::paintEvent(QPaintEvent *event) {
     painter.scale(scaleX, scaleY);
 
     // Fondo
-    QPixmap background_pixmap("C:/Users/alexa/Desktop/proyecto_final/videojuego_code/multimedia/imagenes/fondo_nivel1.jpg");
+    QPixmap background_pixmap(":/imagenes/multimedia/imagenes/fondo_nivel1.jpg");
     QBrush background_brush(background_pixmap);
     background_brush.setStyle(Qt::TexturePattern);
     painter.fillRect(0, 0, NIVEL_WIDTH, NIVEL_HEIGHT, background_brush);
 
     // dibujo Muros
 
-    QPixmap muro_pixmap("C:/Users/alexa/Desktop/proyecto_final/videojuego_code/multimedia/imagenes/paredes_nivel1.jpg");
+    QPixmap muro_pixmap(":/imagenes/multimedia/imagenes/paredes_nivel1.jpg");
     QBrush muro_brush;
 
     if (!muro_pixmap.isNull()) {
         muro_brush = QBrush(muro_pixmap);
         muro_brush.setStyle(Qt::TexturePattern);
     } else {
-        qDebug() << "ADVERTENCIA CRÍTICA: ¡No se pudo cargar la imagen del muro! Usando gris sólido.";
         muro_brush = QBrush(QColor(80, 80, 80));
     }
 
@@ -627,15 +598,7 @@ void Niveluno::paintEvent(QPaintEvent *event) {
         borderPen.setWidth(2);
         painter.setPen(borderPen);
 
-        // 2. Determinar el color de relleno
-        if (f.estaQuemado) {
-            painter.setBrush(Qt::darkGray);
-        } else {
-            painter.setBrush(Qt::yellow);
-        }
-
-        // 3. Dibujar la elipse/círculo
-        painter.drawEllipse(f.getRectanguloColision());
+        painter.drawPixmap(f.pos_x, f.pos_y, f.imagenFragmento);
     }
 
     // Dibujado del Jugador (Sabio Maya)
@@ -703,7 +666,7 @@ void Niveluno::paintEvent(QPaintEvent *event) {
         painter.drawRect(NIVEL_WIDTH / 2 - 100, NIVEL_HEIGHT - 40, 200 * progreso, 10);
     }
 
-    // --- MENSAJES FINALES (VICTORIA / DERROTA) - CORREGIDOS ---
+    // --- MENSAJES FINALES (VICTORIA / DERROTA)
     if (juegoEstado != 0) {
         QString mensaje = "";
         QColor colorFondo;

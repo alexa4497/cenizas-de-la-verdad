@@ -7,7 +7,15 @@
 #include <QVector>
 #include <QPixmap>
 #include <QKeyEvent>
-#include "objetosjuego.h"
+#include <QMediaPlayer>
+#include <QAudioOutput>
+
+#include "ob.h"
+#include "personajes.h"
+#include "fuego.h"
+#include "obstaculos.h"
+#include "fragmentos.h"
+
 
 namespace Ui {
 class Niveluno;
@@ -20,12 +28,16 @@ class Niveluno : public QWidget
 public:
     explicit Niveluno(QWidget *parent = nullptr);
     ~Niveluno();
+    QMediaPlayer *musicaFondo;
+    QAudioOutput *audioOutput;
+
 
 private slots:
     void actualizarJuego();
     void reiniciarNivel();
     void actualizarAnimacionFuego();
     void actualizarAnimacionMaya();
+
 
 
 protected:
