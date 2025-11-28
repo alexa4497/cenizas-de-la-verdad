@@ -1,0 +1,6 @@
+#ifndef OBJETOSJUEGO_H
+#define OBJETOSJUEGO_H
+
+
+
+#endif // OBJETOSJUEGO_H
