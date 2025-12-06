@@ -2,14 +2,13 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "niveluno.h"
-#include "ob.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
 }
 QT_END_NAMESPACE
+
 
 class MainWindow : public QMainWindow
 {
@@ -18,14 +17,16 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    Ui::MainWindow *ui;
 
-private slots:
+public slots:
     void abrirNivelUno();
     void abrirNivelDos();
     void abrirNivelTres();
+    void regresarAlMenu();
 
-
+private:
+    Ui::MainWindow *ui;
 
 };
+
 #endif // MAINWINDOW_H

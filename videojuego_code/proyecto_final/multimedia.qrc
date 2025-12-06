@@ -4,11 +4,25 @@
         <file>multimedia/imagenes/img_inicio.png</file>
         <file>multimedia/imagenes/paredes_nivel1.jpg</file>
         <file>multimedia/imagenes/sprites_fuego.png</file>
-        <file>multimedia/imagenes/sprites_sabiomaya.png</file>
         <file>multimedia/imagenes/titulo.jpg</file>
         <file>multimedia/imagenes/fragmento.png</file>
+        <file>multimedia/imagenes/fondonivel3.png</file>
+        <file>multimedia/imagenes/libro_azul.png</file>
+        <file>multimedia/imagenes/libro_rojo.png</file>
+        <file>multimedia/imagenes/libro_verde.png</file>
+        <file>multimedia/imagenes/textura_madera.png</file>
+        <file>multimedia/imagenes/perosnajeFinalnivel3xx.png</file>
+        <file>multimedia/imagenes/inquisidorsprite.png</file>
+        <file>multimedia/imagenes/jugadornivel2final.png</file>
+        <file>multimedia/imagenes/paredes_nivel2.png</file>
+        <file>multimedia/imagenes/pergamino_pequeno.png</file>
+        <file>multimedia/imagenes/textura_piso_nivel2.png</file>
+        <file>multimedia/imagenes/sprite_sabiomaya.png</file>
     </qresource>
     <qresource prefix="/sonido">
         <file>multimedia/audio/audio_nivel1.ogg</file>
+        <file>multimedia/audio/salto.ogg</file>
+        <file>multimedia/audio/audio_nivel3.ogg</file>
+        <file>multimedia/audio/audio_nivel2.ogg</file>
     </qresource>
 </RCC>

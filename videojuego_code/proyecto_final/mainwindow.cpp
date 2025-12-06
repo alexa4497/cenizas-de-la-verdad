@@ -1,5 +1,8 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "niveluno.h"
+#include "niveldos.h"
+#include "niveltres.h"
 #include <QPushButton>
 #include <QDebug>
 #include <QFont>
@@ -7,12 +10,12 @@
 #include <QWidget>
 #include <QLabel>
 #include <QPixmap>
-#include "niveluno.h"
-
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+
 {
     // Las constantes Niveluno son: 1250x650
     const int NIVEL_WIDTH = 1250;
@@ -30,7 +33,6 @@ MainWindow::MainWindow(QWidget *parent)
     this->resize(NIVEL_WIDTH, NIVEL_HEIGHT);
 
     // ** FONDOS Y ESTILO DE VENTANA **
-
     QString imagePath = ":/imagenes/multimedia/imagenes/img_inicio.png";
 
     this->setStyleSheet(QString(
@@ -41,8 +43,7 @@ MainWindow::MainWindow(QWidget *parent)
                             "}"
                             ).arg(imagePath));
 
-    //titulo
-
+    // Título
     QWidget *centerWidget = new QWidget(this);
     QVBoxLayout *layout = new QVBoxLayout(centerWidget);
     QFont font("Times New Roman", 18, QFont::Bold);
@@ -62,7 +63,7 @@ MainWindow::MainWindow(QWidget *parent)
         layout->addSpacing(30);
     }
 
-    // --- Configurar Botones y Anadirlos al Layout ---
+    // --- Configurar Botones y Añadirlos al Layout ---
     QSize buttonSize(BUTTON_WIDTH, BUTTON_HEIGHT);
 
     ui->btnNivel1->setFont(font);
@@ -77,17 +78,22 @@ MainWindow::MainWindow(QWidget *parent)
     ui->btnNivel3->setFixedSize(buttonSize);
     layout->addWidget(ui->btnNivel3, 0, Qt::AlignCenter);
 
+    // Botón de salir de la aplicación
+    QPushButton *btnSalirApp = new QPushButton("Salir del Juego", centerWidget);
+    btnSalirApp->setFont(font);
+    btnSalirApp->setFixedSize(buttonSize);
+    connect(btnSalirApp, &QPushButton::clicked, this, &QMainWindow::close);
+    layout->addWidget(btnSalirApp, 0, Qt::AlignCenter);
 
     layout->addStretch();
 
     this->setCentralWidget(centerWidget);
 
-    // 3. Conexiones (Se mantienen sin cambios)
+    // 3. Conexiones
     connect(ui->btnNivel1, &QPushButton::clicked, this, &MainWindow::abrirNivelUno);
     connect(ui->btnNivel2, &QPushButton::clicked, this, &MainWindow::abrirNivelDos);
     connect(ui->btnNivel3, &QPushButton::clicked, this, &MainWindow::abrirNivelTres);
 }
-
 
 MainWindow::~MainWindow()
 {
@@ -97,19 +103,52 @@ MainWindow::~MainWindow()
 // IMPLEMENTACIÓN DE SLOTS
 
 void MainWindow::abrirNivelUno() {
+    this->hide();
+
+    // Crear el nivel uno CON DeleteOnClose
+    Niveluno *nivelUno = new Niveluno(nullptr);
+    nivelUno->setAttribute(Qt::WA_DeleteOnClose);
+
+    connect(nivelUno, &Niveluno::regresarMenuPrincipal,
+            this, &MainWindow::regresarAlMenu);
+
+    nivelUno->show();
+}
+
+void MainWindow::abrirNivelDos() {
 
     this->hide();
-    Niveluno *nivel = new Niveluno(nullptr);
-    nivel->show();
-    nivel->setAttribute(Qt::WA_DeleteOnClose);
+
+    // Crear el nivel dos CON DeleteOnClose
+    Niveldos *nivelDos = new Niveldos(nullptr);
+    nivelDos->setAttribute(Qt::WA_DeleteOnClose);
+
+    // CONECTAR LA SENAL DEL NIVEL DOS CON EL SLOT DE REGRESO
+    connect(nivelDos, &Niveldos::regresarMenuPrincipal,
+            this, &MainWindow::regresarAlMenu);
+
+    nivelDos->show();
 }
 
-void MainWindow::abrirNivelDos()
-{
-    qDebug() << "--- Nivel 2 CONECTADO ---";
+void MainWindow::abrirNivelTres() {
+
+    this->hide();
+
+    Niveltres *nivelTres = new Niveltres(nullptr);
+    nivelTres->setAttribute(Qt::WA_DeleteOnClose);
+
+    // CONECTAR LA SEÑAL
+    connect(nivelTres, &Niveltres::regresarMenuPrincipal,
+            this, &MainWindow::regresarAlMenu);
+
+    nivelTres->show();
 }
 
-void MainWindow::abrirNivelTres()
-{
-    qDebug() << "--- Nivel 3 CONECTADO ---";
+
+void MainWindow::regresarAlMenu() {
+
+    this->show();
+    this->activateWindow();
+    this->raise();
+
 }

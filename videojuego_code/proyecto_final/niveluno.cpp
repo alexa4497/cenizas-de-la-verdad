@@ -8,9 +8,8 @@
 #include <cmath>
 #include <QImage>
 #include <QPixmap>
-#include "personajes.h"
-#include "objetosjuego.h"
-
+#include <QPushButton>
+#include <QVBoxLayout>
 
 const int NIVEL_WIDTH = 1250;
 const int NIVEL_HEIGHT = 650;
@@ -18,13 +17,16 @@ const int NIVEL_HEIGHT = 650;
 Niveluno::Niveluno(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::Niveluno)
-
-    , sabioMaya(600.0f, 80.0f, 60.0f, 60.0f,4.0f)
+    , sabioMaya(600.0f, 80.0f, 60.0f, 60.0f, 4.0f)
     , agenteFuego(2000.0f, 2000.0f)
     , FRAGMENTOS_REQUERIDOS(8)
     , TIEMPO_LIMITE_SEGUNDOS(100)
     , TIEMPO_RETENCION_MS(3000)
     , juegoEstado(0)
+    , SPRITE_ROWS(4)
+    , SPRITE_COLUMNS(6)
+    , SPRITE_WIDTH(60)
+    , SPRITE_HEIGHT(60)
 {
     ui->setupUi(this);
     this->setMinimumSize(NIVEL_WIDTH, NIVEL_HEIGHT);
@@ -40,9 +42,9 @@ Niveluno::Niveluno(QWidget *parent)
     inicializarFragmentos();
     inicializarMuros();
     inicializarZonasFuego();
+    inicializarUI();
 
-    // CARGA Y ANIMACIÓN DEL FUEGO
-
+    // CARGA Y ANIMACION DEL FUEGO
     QString spriteSheetPath = ":/imagenes/multimedia/imagenes/sprites_fuego.png";
     QPixmap fullSpriteSheet(spriteSheetPath);
     framesFuego.clear();
@@ -54,7 +56,6 @@ Niveluno::Niveluno(QWidget *parent)
         framesFuego.append(fullSpriteSheet.copy(1 * frameWidth, 0, frameWidth, frameHeight));
         framesFuego.append(fullSpriteSheet.copy(2 * frameWidth, 0, frameWidth, frameHeight));
         framesFuego.append(fullSpriteSheet.copy(3 * frameWidth, 0, frameWidth, frameHeight));
-
     }
 
     currentFrameFuegoIndex = 0;
@@ -64,52 +65,77 @@ Niveluno::Niveluno(QWidget *parent)
         timerAnimacionFuego->start(200);
     }
 
-    // ** B. CARGA Y ANIMACIÓN DEL SABIO MAYA
-
-    QString spriteSheetPathMaya = ":/imagenes/multimedia/imagenes/sprites_sabiomaya.png";
+    // ** B. CARGA Y ANIMACION DEL SABIO MAYA
+    QString spriteSheetPathMaya = ":/imagenes/multimedia/imagenes/sprite_sabiomaya.png";
     fullSpriteSheetMaya.load(spriteSheetPathMaya);
     framesMaya.clear();
     currentFrameMayaIndex = 0;
 
     if (!fullSpriteSheetMaya.isNull()) {
-        int frameWidth = 60;
-        int frameHeight = 60;
+        // Verificar que el sprite sheet tenga las dimensiones correctas (360x240)
+        if (fullSpriteSheetMaya.width() == 360 && fullSpriteSheetMaya.height() == 240) {
+            qDebug() << "Sprite sheet del Sabio Maya cargado correctamente: 360x240 (4x6 frames)";
 
-        for (int y = 0; y < 4; ++y) {
-            for (int x = 0; x < 4; ++x) {
-                framesMaya.append(fullSpriteSheetMaya.copy(x * frameWidth, y * frameHeight, frameWidth, frameHeight));
+            // Dividir el sprite sheet en 4 filas x 6 columnas
+            for (int row = 0; row < SPRITE_ROWS; ++row) {
+                for (int col = 0; col < SPRITE_COLUMNS; ++col) {
+                    QPixmap frame = fullSpriteSheetMaya.copy(
+                        col * SPRITE_WIDTH,
+                        row * SPRITE_HEIGHT,
+                        SPRITE_WIDTH,
+                        SPRITE_HEIGHT
+                        );
+                    framesMaya.append(frame);
+                }
             }
+            qDebug() << "Sprite sheet dividido en" << framesMaya.size() << "frames (60x60 cada uno).";
+        } else {
+            qDebug() << "ADVERTENCIA: El sprite sheet no tiene las dimensiones esperadas 360x240. Tiene:"
+                     << fullSpriteSheetMaya.width() << "x" << fullSpriteSheetMaya.height();
+
+            // Fallback: dividir proporcionalmente
+            int frameWidth = fullSpriteSheetMaya.width() / SPRITE_COLUMNS;
+            int frameHeight = fullSpriteSheetMaya.height() / SPRITE_ROWS;
+
+            for (int row = 0; row < SPRITE_ROWS; ++row) {
+                for (int col = 0; col < SPRITE_COLUMNS; ++col) {
+                    QPixmap frame = fullSpriteSheetMaya.copy(
+                        col * frameWidth,
+                        row * frameHeight,
+                        frameWidth,
+                        frameHeight
+                        );
+                    framesMaya.append(frame);
+                }
+            }
+            qDebug() << "División proporcional completada. Total frames:" << framesMaya.size();
         }
-        qDebug() << "Sprite sheet del Sabio Maya cargado y dividido en" << framesMaya.size() << "frames (60x60 cada uno).";
     } else {
         qDebug() << "ERROR CRÍTICO: No se pudo cargar el sprite sheet del Sabio Maya.";
     }
 
-    // Inicializar variables de estado y animación
+    // Inicializar variables de estado y animacion
     animRowOffset = 0;
     isMoving = false;
 
-    // Timer para la animación de caminata
+    // Timer para la animacion de caminata
     timerAnimacionMaya = new QTimer(this);
     connect(timerAnimacionMaya, &QTimer::timeout, this, &Niveluno::actualizarAnimacionMaya);
     if (!framesMaya.isEmpty()) {
-        timerAnimacionMaya->start(95);
+        timerAnimacionMaya->start(65);
     }
 
     // ----------------------------------------------------
-    // INICIALIZACIÓN DE MÚSICA DE FONDO (CONTINUA)
+    // MUSICA DE FONDO
     // ----------------------------------------------------
     audioOutput = new QAudioOutput(this);
-    audioOutput->setVolume(0.5); // Volumen al 50% (0.0 a 1.0)
+    audioOutput->setVolume(0.5);
 
     musicaFondo = new QMediaPlayer(this);
     musicaFondo->setAudioOutput(audioOutput);
-
-    // ¡IMPORTANTE! Reemplaza ':/sonidos/musica_nivel_1.mp3' con la RUTA CORRECTA de tu archivo .qrc
     musicaFondo->setSource(QUrl("qrc:/sonido/multimedia/audio/audio_nivel1.ogg"));
 
     connect(musicaFondo, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus status) {
-        // Cuando la música termina (EndOfMedia), la volvemos a poner a sonar.
         if (status == QMediaPlayer::EndOfMedia) {
             musicaFondo->play();
         }
@@ -123,18 +149,65 @@ Niveluno::Niveluno(QWidget *parent)
     timerJuego->start(16);
 }
 
+void Niveluno::inicializarUI() {
+    // Crear y configurar el botón de salir
+    btnSalir = new QPushButton("Salir", this);
+    btnSalir->setGeometry(NIVEL_WIDTH - 100, 10, 80, 30);
+    btnSalir->setStyleSheet(
+        "QPushButton {"
+        "    background-color: #d32f2f;"
+        "    color: white;"
+        "    border: none;"
+        "    border-radius: 5px;"
+        "    font-weight: bold;"
+        "    font-size: 12px;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: #b71c1c;"
+        "}"
+        "QPushButton:pressed {"
+        "    background-color: #7f0000;"
+        "}"
+        );
 
 
-Niveluno::~Niveluno()
-{
+    connect(btnSalir, &QPushButton::clicked, this, &Niveluno::onSalirClicked);
+}
+
+void Niveluno::onSalirClicked() {
+    // Detener timers y música
+    if (timerJuego && timerJuego->isActive()) {
+        timerJuego->stop();
+    }
+    if (timerAnimacionMaya && timerAnimacionMaya->isActive()) {
+        timerAnimacionMaya->stop();
+    }
+    if (timerAnimacionFuego && timerAnimacionFuego->isActive()) {
+        timerAnimacionFuego->stop();
+    }
+    if (timerReinicio && timerReinicio->isActive()) {
+        timerReinicio->stop();
+    }
 
     if (musicaFondo) {
         musicaFondo->stop();
     }
 
-    delete ui;
+    qDebug() << "Saliendo del nivel 1...";
+
+    // Emitir señal para regresar al menú principal
+    emit regresarMenuPrincipal();
+
+    // CERRAR LA VENTANA - AÑADE ESTA LÍNEA
+    this->close();
 }
 
+Niveluno::~Niveluno() {
+    if (musicaFondo) {
+        musicaFondo->stop();
+    }
+    delete ui;
+}
 
 // IMPLEMENTACIÓN DE MÉTODOS DE INICIALIZACIÓN
 
@@ -148,9 +221,7 @@ void Niveluno::inicializarFragmentos() {
     fragmentos.append(Fragmento(70, 140));
     fragmentos.append(Fragmento(150, 220));
     fragmentos.append(Fragmento(300, 555));
-
 }
-
 
 void Niveluno::inicializarMuros() {
     muros.clear();
@@ -165,7 +236,6 @@ void Niveluno::inicializarMuros() {
     muros.append(Muro(NIVEL_WIDTH - muro_grosor, muro_grosor, muro_grosor, NIVEL_HEIGHT - 2 * muro_grosor));
 
     // 2. Muros Interiores
-
     const int pilar_altura_lateral = NIVEL_HEIGHT - 2 * muro_grosor - 100;
     const int pilar_altura_central = NIVEL_HEIGHT - 2 * muro_grosor - 200;
 
@@ -185,19 +255,23 @@ void Niveluno::inicializarMuros() {
     muros.append(Muro(x_derecho, muro_grosor, pilar_ancho, pilar_altura_lateral));
 }
 
-
-
 //ANIMACIÓN DEL SABIO MAYA
 
 void Niveluno::actualizarAnimacionMaya() {
     if (isMoving) {
+        // Calcular el índice de la columna actual (0-5)
+        int currentColumnIndex = currentFrameMayaIndex % SPRITE_COLUMNS;
 
-        int currentColumnIndex = currentFrameMayaIndex % 4;
+        // Avanzar a la siguiente columna
+        currentColumnIndex = (currentColumnIndex + 1) % SPRITE_COLUMNS;
 
-        currentColumnIndex = (currentColumnIndex + 1) % 4;
-
-        // 3. Establecer el índice global combinando columna + fila
+        // Establecer el índice global combinando columna + fila
         currentFrameMayaIndex = currentColumnIndex + animRowOffset;
+
+        // Asegurarse de que el índice esté dentro del rango
+        if (currentFrameMayaIndex >= framesMaya.size()) {
+            currentFrameMayaIndex = animRowOffset;
+        }
 
         update();
     }
@@ -219,32 +293,27 @@ void Niveluno::inicializarZonasFuego() {
     const int Y_FUEGO_SUPERIOR = Y_INICIO_MURO - fuego_grosor_borde_ajustado; // 175 - 35 = 140
     const int Y_FUEGO_INFERIOR_INICIO = Y_INICIO_MURO + GROSOR_MURO; // 175 + 50 = 225
 
-
     const int X_FUEGO_IZQ = 450 - fuego_grosor_borde_ajustado; // 415
     const int X_FUEGO_DER = 800;
     const int ANCHO_TOTAL_FUEGO = 350 + 2 * fuego_grosor_borde_ajustado; // 420
     const int ALTO_TOTAL_FUEGO = GROSOR_MURO + 2 * fuego_grosor_borde_ajustado; // 120
-
 
     // 1. ZONA INFERIOR
     zonasFuego.append(Muro(0, y_inferior, x_central, fuego_inferior_grosor));
     zonasFuego.append(Muro(x_central + pilar_ancho, y_inferior, NIVEL_WIDTH - (x_central + pilar_ancho), fuego_inferior_grosor));
 
     // 2. FUEGO QUE RODEA LA BARRA HORIZONTAL
-
     zonasFuego.append(Muro(X_FUEGO_IZQ, Y_FUEGO_SUPERIOR, ANCHO_TOTAL_FUEGO, fuego_grosor_borde_ajustado));
     zonasFuego.append(Muro(X_FUEGO_IZQ, Y_FUEGO_INFERIOR_INICIO, ANCHO_TOTAL_FUEGO, fuego_grosor_borde_ajustado));
     zonasFuego.append(Muro(X_FUEGO_IZQ, Y_FUEGO_SUPERIOR, fuego_grosor_borde_ajustado, ALTO_TOTAL_FUEGO));
     zonasFuego.append(Muro(X_FUEGO_DER, Y_FUEGO_SUPERIOR, fuego_grosor_borde_ajustado, ALTO_TOTAL_FUEGO));
 
     // 3. FUEGO QUE RODEA EL PILAR VERTICAL
-
     const int Y_INICIO_FUEGO_PILAR = Y_FUEGO_INFERIOR_INICIO + fuego_grosor_borde_ajustado; // 225 + 35 = 260
     const int Y_FINAL_FUEGO_PILAR = y_inferior; // 580
     const int altura_fuego_pilar = Y_FINAL_FUEGO_PILAR - Y_INICIO_FUEGO_PILAR; // 580 - 260 = 320
     const int X_BORDE_IZQ_PILAR = x_central - fuego_grosor_borde_ajustado; // 595 - 35 = 560
     const int X_BORDE_DER_PILAR = x_central + pilar_ancho; // 595 + 60 = 655
-
 
     zonasFuego.append(Muro(X_BORDE_IZQ_PILAR, Y_INICIO_FUEGO_PILAR, fuego_grosor_borde_ajustado, altura_fuego_pilar));
     zonasFuego.append(Muro(X_BORDE_DER_PILAR, Y_INICIO_FUEGO_PILAR, fuego_grosor_borde_ajustado, altura_fuego_pilar));
@@ -253,7 +322,6 @@ void Niveluno::inicializarZonasFuego() {
     zonasFuego.append(Muro(120, 100, 100, 100));
     zonasFuego.append(Muro(1050, 100, 100, 100));
 }
-
 
 // ----------------------------------------------------
 // IMPLEMENTACIÓN DE MÉTODOS DE LÓGICA Y JUEGO
@@ -298,7 +366,6 @@ void Niveluno::verificarColisiones() {
     }
 
     // LÓGICA DE RESETEO CRÍTICO Y TIEMPO DE RETENCIÓN
-
     if (sabioMaya.estaIntentandoRetener && sabioMaya.fragmentoEnContactoActual == nullptr) {
         if (sabioMaya.tiempoContactoFragMs != 0) {
             sabioMaya.tiempoContactoFragMs = 0;
@@ -311,7 +378,6 @@ void Niveluno::verificarColisiones() {
     qint64 tiempoTranscurrido = 0;
 
     if (debeContar) {
-
         // 1. INICIO DEL CONTEO
         if (sabioMaya.tiempoContactoFragMs == 0) {
             sabioMaya.tiempoContactoFragMs = tiempoActual;
@@ -324,7 +390,6 @@ void Niveluno::verificarColisiones() {
         }
 
         if (tiempoTranscurrido >= TIEMPO_RETENCION_MS) {
-
             if (sabioMaya.fragmentoEnContactoActual != nullptr) {
                 sabioMaya.fragmentoEnContactoActual->estaSalvado = true;
                 sabioMaya.fragmentosSalvados++;
@@ -381,12 +446,10 @@ void Niveluno::verificarColisiones() {
     }
 }
 
-
 // Implementación del slot actualizarAnimacionFuego
 
 void Niveluno::actualizarAnimacionFuego() {
-
-    if (framesFuego.size() < 2) {
+    if (framesFuego.size() < 2) {
         return;
     }
     currentFrameFuegoIndex = (currentFrameFuegoIndex + 1) % framesFuego.size();
@@ -398,57 +461,62 @@ void Niveluno::actualizarAnimacionFuego() {
 // IMPLEMENTACIÓN DE EVENTOS TECLADO
 // ----------------------------------------------------
 
-
 void Niveluno::keyPressEvent(QKeyEvent *event) {
-        if (juegoEstado != 0) return;
-        float dx = 0.0f;
-        float dy = 0.0f;
+    if (juegoEstado != 0) return;
+    float dx = 0.0f;
+    float dy = 0.0f;
 
-        // 1. Manejo del intento de retención ('E')
-        if (event->key() == Qt::Key_E) {
-            if (event->isAutoRepeat()) return;
-            sabioMaya.estaIntentandoRetener = true;
+    // 1. Manejo del intento de retención ('E')
+    if (event->key() == Qt::Key_E) {
+        if (event->isAutoRepeat()) return;
+        sabioMaya.estaIntentandoRetener = true;
+    }
 
+    if (!sabioMaya.estaIntentandoRetener) {
+        // --- 2.1 Determinar dirección y movimiento ---
+        // ORDEN ESPECIFICADO:
+        // Fila 0: S (abajo) - Primera fila
+        // Fila 1: W (arriba) - Segunda fila
+        // Fila 2: D (derecha) - Tercera fila
+        // Fila 3: A (izquierda) - Cuarta fila
+
+        if (event->key() == Qt::Key_S) {  // PRIMERA FILA: S (abajo)
+            dy = 1.0f;
+            animRowOffset = SPRITE_COLUMNS * 0;  // Fila 0: Abajo (frames 0-5)
+        }
+        if (event->key() == Qt::Key_W) {  // SEGUNDA FILA: W (arriba)
+            dy = -1.0f;
+            animRowOffset = SPRITE_COLUMNS * 1;  // Fila 1: Arriba (frames 6-11)
+        }
+        if (event->key() == Qt::Key_D) {  // TERCERA FILA: D (derecha)
+            dx = 1.0f;
+            animRowOffset = SPRITE_COLUMNS * 2;  // Fila 2: Derecha (frames 12-17)
+        }
+        if (event->key() == Qt::Key_A) {  // CUARTA FILA: A (izquierda)
+            dx = -1.0f;
+            animRowOffset = SPRITE_COLUMNS * 3;  // Fila 3: Izquierda (frames 18-23)
         }
 
+        if (dx != 0.0f || dy != 0.0f) {
+            moverJugador(dx, dy);
 
-        if (!sabioMaya.estaIntentandoRetener) {
+            // --- 2.2 Lógica de Animación
+            isMoving = true;
 
-            // --- 2.1 Determinar dirección y movimiento ---
-            if (event->key() == Qt::Key_W) {
-                dy = -1.0f;
-                animRowOffset = 12; // Fila 3: Arriba
-            }
-            if (event->key() == Qt::Key_S) {
-                dy = 1.0f;
-                animRowOffset = 0;  // Fila 0: Abajo
-            }
-            if (event->key() == Qt::Key_A) {
-                dx = -1.0f;
-                animRowOffset = 4;  // Fila 1: Izquierda
-            }
-            if (event->key() == Qt::Key_D) {
-                dx = 1.0f;
-                animRowOffset = 8;  // Fila 2: Derecha
-            }
+            // Establecer el primer frame de la nueva dirección inmediatamente
+            currentFrameMayaIndex = animRowOffset;
 
-            if (dx != 0.0f || dy != 0.0f) {
-                moverJugador(dx, dy);
-
-                // --- 2.2 Lógica de Animación
-                isMoving = true;
-
-                // Establecer el primer frame de la nueva dirección inmediatamente
+            // Asegurarse de que el índice esté dentro del rango
+            if (currentFrameMayaIndex >= framesMaya.size()) {
                 currentFrameMayaIndex = animRowOffset;
-            } else {
-
-                isMoving = false;
             }
+        } else {
+            isMoving = false;
         }
+    }
 
-        update();
+    update();
 }
-
 
 void Niveluno::verificarEstadoJuego() {
     int tiempoRestante = TIEMPO_LIMITE_SEGUNDOS - (timerElapsedJuego.elapsed() / 1000);
@@ -485,18 +553,19 @@ void Niveluno::keyReleaseEvent(QKeyEvent *event) {
     // 1. Lógica para soltar la tecla de Retención ('E')
     if (event->key() == Qt::Key_E) {
         sabioMaya.estaIntentandoRetener = false;
-
-
         sabioMaya.tiempoContactoFragMs = 0;
-
     }
 
     if (event->key() == Qt::Key_W || event->key() == Qt::Key_S ||
         event->key() == Qt::Key_A || event->key() == Qt::Key_D) {
 
         isMoving = false;
-
         currentFrameMayaIndex = animRowOffset;
+
+        // Asegurarse de que el índice esté dentro del rango
+        if (currentFrameMayaIndex >= framesMaya.size()) {
+            currentFrameMayaIndex = animRowOffset;
+        }
 
         update();
     }
@@ -504,18 +573,14 @@ void Niveluno::keyReleaseEvent(QKeyEvent *event) {
     QWidget::keyReleaseEvent(event);
 }
 
-
-
 // ----------------------------------------------------
 // IMPLEMENTACIÓN DE MÉTODOS DE REINICIO
 // ----------------------------------------------------
 
-
 void Niveluno::reiniciarNivel() {
-
     timerReinicio->stop();
 
-    sabioMaya = Jugador(600.0f, 80.0f, 60.0f, 60.0f,4.0f);
+    sabioMaya = Jugador(600.0f, 80.0f, 60.0f, 60.0f, 4.0f);
 
     juegoEstado = 0;
     timerElapsedJuego.restart();
@@ -532,8 +597,6 @@ void Niveluno::reiniciarNivel() {
     update();
 }
 
-
-
 void Niveluno::paintEvent(QPaintEvent *event) {
     QPainter painter(this);
 
@@ -549,7 +612,6 @@ void Niveluno::paintEvent(QPaintEvent *event) {
     painter.fillRect(0, 0, NIVEL_WIDTH, NIVEL_HEIGHT, background_brush);
 
     // dibujo Muros
-
     QPixmap muro_pixmap(":/imagenes/multimedia/imagenes/paredes_nivel1.jpg");
     QBrush muro_brush;
 
@@ -569,9 +631,7 @@ void Niveluno::paintEvent(QPaintEvent *event) {
     }
 
     // Dibujado de Zonas de Fuego Fijas
-
     if (!framesFuego.isEmpty() && currentFrameFuegoIndex < framesFuego.size()) {
-
         QPixmap currentFrame = framesFuego.at(currentFrameFuegoIndex);
         painter.setPen(Qt::NoPen);
         painter.setCompositionMode(QPainter::CompositionMode_SourceOver); // Transparencia
@@ -602,7 +662,6 @@ void Niveluno::paintEvent(QPaintEvent *event) {
     }
 
     // Dibujado del Jugador (Sabio Maya)
-
     if (!framesMaya.isEmpty() && currentFrameMayaIndex < framesMaya.size()) {
         QPixmap playerFrame = framesMaya.at(currentFrameMayaIndex);
 
@@ -616,10 +675,7 @@ void Niveluno::paintEvent(QPaintEvent *event) {
         painter.drawEllipse(sabioMaya.getRectanguloColision());
     }
 
-
-
     // 3. DIBUJADO DE LA INTERFAZ DE USUARIO
-
 
     // --- Configuración Global de Fuente y Fondo ---
     QFont hudFont("Times New Roman", 16, QFont::Bold);
@@ -636,14 +692,12 @@ void Niveluno::paintEvent(QPaintEvent *event) {
     painter.setPen(Qt::white);
     painter.setFont(hudFont);
 
-
     // Texto de Fragmentos
     painter.drawText(20, 30, QString("Fragmentos: %1 / %2").arg(sabioMaya.fragmentosSalvados).arg(FRAGMENTOS_REQUERIDOS));
 
     // Texto de Tiempo Restante
     int tiempoRestante = TIEMPO_LIMITE_SEGUNDOS - (timerElapsedJuego.elapsed() / 1000);
     painter.drawText(20, 50, QString("Tiempo: %1 s").arg(tiempoRestante));
-
 
     // --- MENSAJE "RESCATANDO..."
     if (sabioMaya.tiempoContactoFragMs > 0) {
@@ -683,7 +737,6 @@ void Niveluno::paintEvent(QPaintEvent *event) {
         painter.setBrush(colorFondo);
         painter.setPen(Qt::NoPen);
         painter.drawRect(0, 0, NIVEL_WIDTH, NIVEL_HEIGHT);
-
 
         painter.setPen(Qt::white);
         painter.setFont(QFont("Times New Roman", 36, QFont::Bold)); // Tamaño ajustado a 36

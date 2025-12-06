@@ -17,5 +17,16 @@ public:
     QRect getRectanguloColision() const {
         return QRect(pos_x, pos_y, ancho, alto);
     }
+
+    // Getters de Posición y Tamaño
+    float getPos_x() const { return pos_x; }
+    float getPos_y() const { return pos_y; }
+    float getAncho() const { return ancho; }
+    float getAlto() const { return alto; }
+
+    // Setters de Posicion
+    void setPos_x(float x) { pos_x = x; }
+    void setPos_y(float y) { pos_y = y; }
+
 };
 #endif // OBJETOSJUEGO_H

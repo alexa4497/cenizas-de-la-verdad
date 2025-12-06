@@ -13,8 +13,11 @@ CONFIG += c++17
 SOURCES += \
     fragmentos.cpp \
     fuego.cpp \
+    inquisidor.cpp \
     main.cpp \
     mainwindow.cpp \
+    niveldos.cpp \
+    niveltres.cpp \
     niveluno.cpp \
     obstaculos.cpp \
     personajes.cpp
@@ -22,7 +25,10 @@ SOURCES += \
 HEADERS += \
     fragmentos.h \
     fuego.h \
+    inquisidor.h \
     mainwindow.h \
+    niveldos.h \
+    niveltres.h \
     niveluno.h \
     ob.h \
     obstaculos.h \

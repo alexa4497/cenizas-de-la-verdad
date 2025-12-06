@@ -1,4 +1,5 @@
 #include "personajes.h"
+#include "ob.h"
 #include <cmath>
 #include <algorithm>
 
@@ -25,6 +26,15 @@ Jugador:: Jugador(float x, float y, float w, float h, float vel)
     fragmentoEnContactoActual(nullptr)
 {}
 
+Jugador::Jugador(float x, float y)
+    // Llama al constructor base de Personaje con valores por defecto
+    : Personaje(x, y, 40.0f, 40.0f, 5.0f)
+{
+    fragmentosSalvados = 0;
+    tiempoContactoFragMs = 0;
+    estaIntentandoRetener = false;
+    fragmentoEnContactoActual = nullptr;
+}
 
 void Jugador::dibujar() {
 
